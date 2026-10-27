@@ -79,3 +79,13 @@ test('every challenge has files, three phases and a real entry file', async () =
     assert.ok(fs.existsSync(new URL(`${id}/files/${meta.entry}`, dir)), `${id} entry ${meta.entry}`);
   }
 });
+
+test('the API rate limit blocks a burst from one client and not another', async () => {
+  const { rateLimited } = await import('../api/_groq.js');
+  const now = 1_000_000;
+  const results = Array.from({ length: 31 }, () => rateLimited('1.2.3.4', { limit: 30, now }));
+  assert.equal(results.slice(0, 30).some(Boolean), false);
+  assert.equal(results[30], true);
+  assert.equal(rateLimited('5.6.7.8', { limit: 30, now }), false);
+  assert.equal(rateLimited('1.2.3.4', { limit: 30, now: now + 61000 }), false);
+});

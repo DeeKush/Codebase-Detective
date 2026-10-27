@@ -61,8 +61,21 @@ export async function callGroq({ system, messages, schema, maxTokens }) {
   return text;
 }
 
+// Best-effort per-IP limit (in memory, so per serverless instance). It stops a single client from burning the Groq quota.
+const hits = new Map();
+export function rateLimited(ip, { limit = 30, windowMs = 60000, now = Date.now() } = {}) {
+  if (!ip) return false;
+  const recent = (hits.get(ip) || []).filter(t => now - t < windowMs);
+  recent.push(now);
+  hits.set(ip, recent);
+  if (hits.size > 5000) for (const [key, times] of hits) if (now - times.at(-1) >= windowMs) hits.delete(key);
+  return recent.length > limit;
+}
+const clientIp = req => String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+
 export async function handle(req, res, fn) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only.' });
+  if (rateLimited(clientIp(req))) return res.status(429).json({ error: 'Too many requests. Wait a minute and try again.' });
   try { res.status(200).json(await fn(req.body && typeof req.body === 'object' ? req.body : {})); }
   catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal error.' }); }
 }
