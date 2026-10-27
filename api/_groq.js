@@ -1,29 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
-function loadEnv() {
-  if (process.env.GROQ_API_KEY) return;
-  for (const f of ['.env.local', '.env', '../.env.local', '../.env']) {
-    try {
-      const p = path.resolve(process.cwd(), f);
-      if (fs.existsSync(p)) {
-        if (typeof process.loadEnvFile === 'function') {
-          process.loadEnvFile(p);
-        } else {
-          const text = fs.readFileSync(p, 'utf8');
-          for (const line of text.split('\n')) {
-            const m = line.match(/^\s*([A-Za-z_0-9]+)\s*=\s*(.*)?\s*$/);
-            if (m && !process.env[m[1]]) {
-              process.env[m[1]] = (m[2] || '').trim().replace(/^['"]|['"]$/g, '');
-            }
-          }
-        }
-        if (process.env.GROQ_API_KEY) break;
-      }
-    } catch { }
-  }
-}
-loadEnv();
+import './_lib/env.js';
 
 const CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';

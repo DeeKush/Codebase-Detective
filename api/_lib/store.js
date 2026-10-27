@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import './env.js';
 import { HttpError } from './http.js';
 
 // Key-value storage behind one interface:

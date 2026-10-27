@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
+import './env.js';
 import { HttpError } from './http.js';
 import { getStore } from './store.js';
 

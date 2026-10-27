@@ -7,7 +7,8 @@
     "dev": "vite --port 3000",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "check": "npm test && npm run build"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.6.0",
@@ -18,5 +19,9 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11"
+  },
+  "description": "Codebase Detective: a timed code-comprehension interview with an AI coach, sandboxed grading and an evidence-backed report",
+  "engines": {
+    "node": ">=22"
   }
 }

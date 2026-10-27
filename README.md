@@ -1,23 +1,92 @@
-# Codebase Detective (web)
+# Codebase Detective
 
-Browser version of the interview lab: Monaco editor, fixed tests in a Web Worker, an AI coach, and an evidence-backed report. Everything it needs lives in this folder.
+A timed code-comprehension interview. A candidate gets an unfamiliar codebase with a bug nobody has explained, an AI assistant, and a clock. The app measures how they read code, debug, use the AI and explain their reasoning, then produces an evidence-backed report.
 
-## Run locally
-1. `npm install`
-2. Create `.env.local` containing `GROQ_API_KEY=<your key>` (optional `GROQ_MODEL`, default `openai/gpt-oss-120b`).
-3. `vercel dev --listen 3000` and open http://localhost:3000. Plain `npm run dev` serves only the UI; the `/api` routes need `vercel dev`.
-4. `npm test` runs the harness and API tests; `npm run build` builds `dist/`.
+This folder is the whole product and runs on its own: nothing outside `web/` is needed to install, test, run or deploy it.
 
-## Deploy
-Import the repo in Vercel with **Root Directory = `web`** and set `GROQ_API_KEY`.
+- Live app: **<add the Vercel URL>**
+- Demo video: **<add the link>**
 
-## Layout
-- `src/` React app, test runner worker, scoring. `src/challenge/` holds the challenge files.
-- `api/chat.js`, `api/assess.js` Vercel functions; the only code that sees the Groq key.
-- Progress is saved in the browser's localStorage. Test results are computed client-side, so this is a demo-grade trust model with no rate limiting.
+## Problem statement
 
-## How a round works
-- Sign up or log in (accounts are device-local: salted PBKDF2 hashes in this browser's storage, no server).
-- Pick 10, 30 or 60 minutes (1, 2 or 3 phases). A case is drawn at random from `src/challenges/` and the clock starts when you press Start. `?case=<id>` forces a case for testing.
-- Each challenge folder holds `meta.json`, `files/` (what the candidate sees), and for `"runner": "suite"` challenges `hidden/` tests and `reference.patch`. `npm test` checks that every suite challenge is fair: visible tests pass, hidden tests catch the bug, the patch fixes it.
-- `scripts/ingest.mjs` turns open-source bug-fix commits into new bundles (`reviewed: false` until a human approves them).
+Hiring tests usually ask people to write fresh code on a blank page. Real work is mostly reading code someone else wrote, finding what is wrong, and deciding how far to trust an AI assistant. Take-homes and puzzles do not measure that, and interviewers have no record of *how* the candidate worked.
+
+## Target users
+
+- Candidates and students practising code reading and debugging under time pressure, with feedback on how they used the AI.
+- Interviewers and training programs that want a repeatable code-comprehension round with a scored report.
+
+## Solution and key features
+
+1. **Accounts and saved rounds.** Sign up and log in (scrypt-hashed passwords, HttpOnly signed cookies). The in-progress round is saved to the server, restored after a reload or on another device, and finished rounds appear in a history list.
+2. **Random, time-boxed assignment.** A case is drawn at random from 8 codebases (recent ones are avoided). The candidate picks 10, 30 or 60 minutes; shorter rounds cover fewer phases (Bug Fix, then Regression Test, then Review). Time running out submits the work automatically.
+3. **Real test execution.** The tests the candidate can see run in a Web Worker with a purpose-built mocha-style runner. Hidden tests, including the one that exposes the bug, run on the server in an isolated Vercel Sandbox (no network, no secrets) when the round is submitted.
+4. **AI coach with limits.** The assistant reads the candidate's files through a server endpoint, so the key never reaches the browser. It cannot edit or run code, and every prompt becomes evidence.
+5. **Evidence-backed report.** Four criteria (code reading, debugging, AI fluency, communication) are scored under a strict JSON schema. The server rejects scores out of range, unknown evidence ids, and positive scores without evidence, and accepts hidden-test results only with its own signature.
+6. **Narration and timeline.** Optional voice-to-text or typed notes merged with AI prompts and phase changes.
+
+## Tech stack
+
+React 18 + Vite, Monaco editor, Web Workers, Vercel Serverless Functions (Node 22), Upstash Redis, Vercel Sandbox, Groq (`openai/gpt-oss-120b`, structured output), Node `crypto` (scrypt, HMAC), Node's built-in test runner.
+
+## Architecture
+
+```
+Browser (React)
+ ├─ Welcome / Landing ── auth.js ──▶ /api/auth/{signup,login,logout,me}
+ ├─ challenges/*  (bundled: files/ and public meta only)
+ ├─ App (editor, explorer, chat, timeline, timer) ── session.js ──▶ localStorage cache + PUT /api/state
+ ├─ runner.js ──▶ runner.worker.js ──▶ testkit.js          visible tests, in the browser
+ ├─ POST /api/grade   ──▶ Vercel Sandbox (no network)      hidden tests, on the server
+ ├─ POST /api/chat    ──▶ Groq                             AI coach
+ └─ POST /api/assess  ──▶ Groq                             rubric; records the finished round
+
+api/            Vercel functions. _lib/ holds auth (scrypt, HMAC cookies), store (Redis / file / memory),
+                grader (Sandbox or worker), challenge loader, rate limits.
+src/challenges/ One folder per case: meta.json, files/ (shown to the candidate), and server-only hidden/,
+                reference.patch, grading.json.
+scripts/        ingest.mjs turns open-source bug-fix commits into new case bundles (reviewed:false until approved).
+tests/          33 tests: runner, auth, API, grading, scoring, and a check that every case is fair and no hidden test text is in the browser bundle.
+```
+
+## Local setup
+
+```bash
+npm install
+cp .env.example .env.local      # then fill GROQ_API_KEY and AUTH_SECRET (see below)
+npm run dev                     # UI and /api routes on http://localhost:3000
+npm test                        # 33 tests
+npm run build                   # production build in dist/
+```
+
+With the database variables left empty, accounts and rounds are kept in `.data/store.json` (git-ignored) and hidden tests run in a worker thread (`GRADER=local`, development only). `?case=lru-cache` forces a specific case.
+
+## Environment variables
+
+Documented in `.env.example`; real values live in `.env.local` (git-ignored) or in Vercel's settings.
+
+| Name | Required | Purpose |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | Groq key for the AI coach and the report. Server-side only. |
+| `AUTH_SECRET` | Yes in production | 16+ random characters; signs session cookies and grading proofs. |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Yes in production | Upstash Redis REST URL and token. Empty locally. |
+| `GRADER` | No | `local` for development only. Leave unset in production to grade in Vercel Sandbox. |
+| `GROQ_MODEL` | No | Defaults to `openai/gpt-oss-120b`. |
+
+## Deployment
+
+1. Create a free Upstash Redis database (Vercel Marketplace: `vercel integration add upstash/upstash-kv`, or the Upstash console) and copy its REST URL and token.
+2. In Vercel, import this repository with **Root Directory = `web`**.
+3. Add `GROQ_API_KEY`, `AUTH_SECRET`, `KV_REST_API_URL` and `KV_REST_API_TOKEN` as environment variables, then deploy.
+
+`vercel.json` already bundles the case data into the functions and sets security headers.
+
+## Limitations
+
+- Hidden tests run in a Vercel Sandbox with networking disabled and no secrets, and only test ids and pass/fail leave it. The candidate's code and the assertions share one process inside that sandbox, so a determined candidate could try to tamper with their own result there.
+- The original `retry-queue` case is still graded in the browser and its report marks those results as unverified.
+- The rate limiter is in memory per serverless instance. There is no email verification or password reset.
+
+## Credits
+
+All eight codebases are written for this project. The ingest script follows the idea behind public benchmarks such as SWE-bench (fix commit's parent plus tests that flip) but shares no code with them. Libraries: React, Vite, Monaco, `@vercel/sandbox`.
