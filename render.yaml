@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: codebase-detective
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.17.1
+      - key: GRADER
+        value: local
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: KV_REST_API_URL
+        sync: false
+      - key: KV_REST_API_TOKEN
+        sync: false
