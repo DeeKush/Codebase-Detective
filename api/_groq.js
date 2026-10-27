@@ -28,9 +28,9 @@ loadEnv();
 const CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
-export class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
-}
+import { HttpError, str, rateLimited, clientIp } from './_lib/http.js';
+import { requireUser, assertSameOrigin } from './_lib/auth.js';
+export { HttpError, str };
 
 const REASONS = { 401: 'Authentication failed. Check GROQ_API_KEY.', 402: 'Insufficient Groq credits.', 403: 'Access denied for this model.', 404: 'Model unavailable.', 413: 'Request too large.', 429: 'Rate limit reached. Retry shortly.' };
 
@@ -61,27 +61,16 @@ export async function callGroq({ system, messages, schema, maxTokens }) {
   return text;
 }
 
-// Best-effort per-IP limit (in memory, so per serverless instance). It stops a single client from burning the Groq quota.
-const hits = new Map();
-export function rateLimited(ip, { limit = 30, windowMs = 60000, now = Date.now() } = {}) {
-  if (!ip) return false;
-  const recent = (hits.get(ip) || []).filter(t => now - t < windowMs);
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) for (const [key, times] of hits) if (now - times.at(-1) >= windowMs) hits.delete(key);
-  return recent.length > limit;
-}
-const clientIp = req => String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
-
-export async function handle(req, res, fn) {
+/** Wraps a POST handler: same-origin check, per-IP and per-user rate limits, optional login requirement, safe errors. */
+export async function handle(req, res, fn, { auth = true, limit = 30 } = {}) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only.' });
-  if (rateLimited(clientIp(req))) return res.status(429).json({ error: 'Too many requests. Wait a minute and try again.' });
-  try { res.status(200).json(await fn(req.body && typeof req.body === 'object' ? req.body : {})); }
-  catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal error.' }); }
+  try {
+    assertSameOrigin(req);
+    if (rateLimited(clientIp(req), { limit })) throw new HttpError(429, 'Too many requests. Wait a minute and try again.');
+    const user = auth ? requireUser(req) : null;
+    if (user && rateLimited(`user:${user.email}`, { limit })) throw new HttpError(429, 'Too many requests. Wait a minute and try again.');
+    res.status(200).json(await fn(req.body && typeof req.body === 'object' ? req.body : {}, { user, req, res }));
+  } catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal error.' }); }
 }
 
-export const str = (value, max, name) => {
-  if (typeof value !== 'string') throw new HttpError(400, `${name} must be a string.`);
-  if (value.length > max) throw new HttpError(400, `${name} is too large.`);
-  return value;
-};
+export { rateLimited };

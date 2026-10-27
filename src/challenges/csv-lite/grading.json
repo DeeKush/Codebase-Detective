@@ -1,0 +1,7 @@
+{
+  "failToPass": [
+    "csv blank lines > parse ignores blank lines between rows",
+    "csv blank lines > parse ignores blank windows lines and trailing blanks",
+    "csv blank lines > parseObjects does not turn a blank line into a record"
+  ]
+}

@@ -9,12 +9,6 @@
   "visibleTests": [
     "test/interval-merge.test.js"
   ],
-  "failToPass": [
-    "intervals edge cases > a range inside another does not shrink the outer range",
-    "intervals edge cases > nested ranges after a merge keep the widest end",
-    "intervals edge cases > coverage ignores ranges nested inside others",
-    "intervals edge cases > gaps are not invented behind a nested booking"
-  ],
   "origin": {
     "kind": "authored"
   },

@@ -9,10 +9,6 @@
   "visibleTests": [
     "test/lru-cache.test.js"
   ],
-  "failToPass": [
-    "LRUCache edge cases > reading a falsy value still protects it from eviction",
-    "LRUCache edge cases > empty string and false behave like any other value"
-  ],
   "origin": {
     "kind": "authored"
   },

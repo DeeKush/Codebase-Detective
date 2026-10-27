@@ -118,7 +118,7 @@ const phasesFor = name => [
   { id: 'review', title: 'Review', prompt: 'Find one other input or code path in this module that could break in a similar way. Fix it or explain precisely what you would change and how you would test it.' }
 ];
 
-function writeBundle({ id, meta, files, hidden, patch }) {
+function writeBundle({ id, meta, files, hidden, patch, failToPass }) {
   const dir = path.join(ROOT, 'src/challenges', id);
   fs.rmSync(dir, { recursive: true, force: true });
   const put = (rel, text) => { const p = path.join(dir, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text); };
@@ -126,6 +126,7 @@ function writeBundle({ id, meta, files, hidden, patch }) {
   for (const [f, t] of Object.entries(files)) put(`files/${f}`, t);
   for (const [f, t] of Object.entries(hidden)) put(`hidden/${f}`, t);
   put('reference.patch', patch);
+  put('grading.json', JSON.stringify({ failToPass }, null, 2) + '\n'); // server-only: names of the tests that expose the bug
   return dir;
 }
 
@@ -146,11 +147,11 @@ async function build() {
   const meta = {
     id, title: name, difficulty: difficulty(v.lines), runner: 'suite', hasTests: true,
     entry: v.src[0], description: report.text.split('\n')[0],
-    visibleTests: testFilesOf(v.buggy), failToPass: v.failToPass,
+    visibleTests: testFilesOf(v.buggy),
     origin: { kind: 'historical', repo: repoUrl, fixCommit: sha, license: license ? 'see LICENSE' : 'unknown' },
     reviewed: false, briefGenerated: report.generated, phases: phasesFor(v.src[0])
   };
-  const out = writeBundle({ id, meta, files, hidden: v.hiddenFiles, patch: v.patch });
+  const out = writeBundle({ id, meta, files, hidden: v.hiddenFiles, patch: v.patch, failToPass: v.failToPass });
   console.log(`Wrote ${path.relative(ROOT, out)}  (${v.lines}-line fix, ${v.failToPass.length}/${v.total} hidden tests flip)\nReview BUG_REPORT.md, then set "reviewed": true in meta.json.`);
 }
 
@@ -217,13 +218,13 @@ async function inject() {
     const report = await bugReport({ name, subject: `${label} in ${file}`, body: `Failing behaviours: ${failing.join('; ')}`, patch, testDiff: '' });
     const meta = {
       id, title: name, difficulty: 'Mid', runner: 'suite', hasTests: true, entry: file, description: report.text.split('\n')[0],
-      visibleTests: tests, failToPass: failing,
+      visibleTests: tests,
       origin: { kind: 'injected', repo: repoUrl, baseCommit: head, mutation: label, license: 'see LICENSE' },
       reviewed: false, briefGenerated: report.generated, phases: phasesFor(file)
     };
     const hidden = Object.fromEntries(tests.map(f => [f, healthy[f]]));
     const files = { ...mutated, ...visibleTests, 'BUG_REPORT.md': `# Bug report\n\n${report.text}\n` };
-    const out = writeBundle({ id, meta, files, hidden, patch });
+    const out = writeBundle({ id, meta, files, hidden, patch, failToPass: failing });
     console.log(`Wrote ${path.relative(ROOT, out)}  (${label} in ${file}:${idx + 1}; ${failing.length}/${base.length} tests catch it)\nReview BUG_REPORT.md, then set "reviewed": true in meta.json.`);
     return;
   }

@@ -20,6 +20,7 @@ for (const id of fs.readdirSync(base).filter(n => fs.existsSync(path.join(base, 
   const meta = JSON.parse(fs.readFileSync(path.join(base, id, 'meta.json'), 'utf8'));
   if (meta.runner !== 'suite') continue;
   const files = read(path.join(base, id, 'files')), hidden = read(path.join(base, id, 'hidden'));
+  const failToPass = JSON.parse(fs.readFileSync(path.join(base, id, 'grading.json'), 'utf8')).failToPass;
 
   test(`${id}: visible tests all pass on the buggy code`, async () => {
     const results = await runSuite({ files, testFiles: meta.visibleTests });
@@ -30,8 +31,8 @@ for (const id of fs.readdirSync(base).filter(n => fs.existsSync(path.join(base, 
   test(`${id}: hidden tests fail on the bug and only on the listed tests`, async () => {
     const results = await runSuite({ files: { ...files, ...hidden }, testFiles: Object.keys(hidden) });
     const failing = results.filter(r => r.outcome === 'failed').map(r => r.id).sort();
-    assert.ok(meta.failToPass.length > 0);
-    assert.deepEqual(failing, [...meta.failToPass].sort());
+    assert.ok(failToPass.length > 0);
+    assert.deepEqual(failing, [...failToPass].sort());
   });
 
   test(`${id}: the reference patch makes every hidden test pass`, async () => {

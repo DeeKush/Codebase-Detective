@@ -1,0 +1,7 @@
+{
+  "failToPass": [
+    "Emitter while emitting > a once() handler does not make the next handler miss the event",
+    "Emitter while emitting > a handler that unsubscribes itself does not skip its neighbour",
+    "Emitter while emitting > bus subscribeOnce does not hide events from other subscribers"
+  ]
+}

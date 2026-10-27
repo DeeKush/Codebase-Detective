@@ -1,8 +1,7 @@
 const metas = import.meta.glob('./*/meta.json', { eager: true, import: 'default' });
 const sources = import.meta.glob('./*/files/**/*', { eager: true, query: '?raw', import: 'default' });
-// Hidden tests and the reference fix stay out of `files`, so they are never shown in the editor or sent to the AI assistant.
-const hiddenSources = import.meta.glob('./*/hidden/**/*', { eager: true, query: '?raw', import: 'default' });
-const references = import.meta.glob('./*/reference.patch', { eager: true, query: '?raw', import: 'default' });
+// Hidden tests, the reference fix and grading data (grading.json) are never imported here, so they are not in the browser bundle.
+// They live in the same folder and are read only by the server (api/_lib/challenges.js).
 
 const collect = (sourceMap, prefix) => {
   const out = {};
@@ -15,7 +14,7 @@ export const challenges = Object.entries(metas)
   .filter(([, meta]) => meta.reviewed !== false)
   .map(([metaPath, meta]) => {
     const base = metaPath.replace('meta.json', '');
-    return { ...meta, files: collect(sources, `${base}files/`), hidden: collect(hiddenSources, `${base}hidden/`), reference: references[`${base}reference.patch`] || '' };
+    return { ...meta, files: collect(sources, `${base}files/`) };
   })
   .sort((a, b) => a.title.localeCompare(b.title));
 
