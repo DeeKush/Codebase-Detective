@@ -99,6 +99,7 @@ The flow is the OAuth 2.0 authorization-code flow on the server: a random `state
 
 - Hidden tests run in a Vercel Sandbox with networking disabled and no secrets, and only test ids and pass/fail leave it. The candidate's code and the assertions share one process inside that sandbox, so a determined candidate could try to tamper with their own result there.
 - The original `retry-queue` case is still graded in the browser and its report marks those results as unverified.
+- `npm audit` reports advisories in two transitive dependencies with no non-breaking fix: DOMPurify (pulled in by the optional `monaco-editor` package; it is not in the shipped bundle, because the editor is loaded from the CDN at runtime) and zod (inside `@vercel/sandbox`, server-side, never fed user-controlled schemas).
 - The rate limiter is in memory per serverless instance. There is no email verification or password reset.
 
 ## Credits
