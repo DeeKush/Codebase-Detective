@@ -1,0 +1,12 @@
+--- a/src/parse.js
++++ b/src/parse.js
+@@ -26,8 +26,7 @@
+       row.push(field); field = ''; blank = false;
+     } else if (c === '\n' || c === '\r') {
+       if (c === '\r' && text[i + 1] === '\n') i++;
+-      row.push(field); rows.push(row);
+-      row = []; field = ''; blank = true;
++      endRow();
+     } else {
+       field += c; blank = false;
+     }

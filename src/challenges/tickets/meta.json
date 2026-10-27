@@ -1,0 +1,9 @@
+{
+  "id": "tickets", "title": "Ticket Listing Pagination", "difficulty": "Junior", "hasTests": false, "entry": "src/api.js",
+  "description": "A ticket list endpoint returns wrong pages, wrong totals and unexpected ordering. Find the bugs from the contract in the README.",
+  "phases": [
+    { "id": "bugfix", "title": "Bug Fix", "prompt": "Using the contract in README.md, trace listTickets({ status: 'open', sortBy: 'priority', direction: 'desc', page: 1, pageSize: 3 }) by hand. Identify every place the output violates the contract (filtering, ordering, pagination)." },
+    { "id": "implement", "title": "Implement", "prompt": "Add cursor-based pagination: listTicketsAfter({ after, limit }) returning { items, nextCursor }. Cursors must stay stable when new tickets are created between requests." },
+    { "id": "optimize", "title": "Optimize", "prompt": "Every request filters and sorts the whole array. Give the complexity, then propose an index or precomputed ordering that makes status filtering and first-page requests cheaper. State the trade-offs." }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "retry-queue", "title": "Retry Queue", "difficulty": "Mid", "hasTests": true, "entry": "queue.js",
+  "description": "An async job queue retries failed jobs, but some jobs run twice. Trace one job through failure and retry.",
+  "phases": [
+    { "id": "bugfix", "title": "Bug Fix", "prompt": "Some jobs execute more than once. Trace a job through enqueue, execution, failure and retry. Find the root cause and make a focused fix. Use Run tests to check your reading." },
+    { "id": "implement", "title": "Implement", "prompt": "Add RetryQueue.cancel(id): a pending or waiting job must never run again, a running job finishes but is not retried, and cancelling an unknown id returns false. Emit a 'cancelled' event." },
+    { "id": "optimize", "title": "Optimize", "prompt": "drain() removes work with Array.shift() and every retry re-enters the pending array. Explain the cost for a queue with 100k jobs and propose (or implement) a better structure. State the time complexity before and after." }
+  ]
+}

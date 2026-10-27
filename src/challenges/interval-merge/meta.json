@@ -1,0 +1,39 @@
+{
+  "id": "interval-merge",
+  "title": "Booking Intervals",
+  "difficulty": "Mid",
+  "runner": "suite",
+  "hasTests": true,
+  "entry": "src/intervals.js",
+  "description": "Merges time ranges and reports free slots for a booking tool. Some calendars show free time that is actually booked.",
+  "visibleTests": [
+    "test/interval-merge.test.js"
+  ],
+  "failToPass": [
+    "intervals edge cases > a range inside another does not shrink the outer range",
+    "intervals edge cases > nested ranges after a merge keep the widest end",
+    "intervals edge cases > coverage ignores ranges nested inside others",
+    "intervals edge cases > gaps are not invented behind a nested booking"
+  ],
+  "origin": {
+    "kind": "authored"
+  },
+  "reviewed": true,
+  "phases": [
+    {
+      "id": "bugfix",
+      "title": "Bug Fix",
+      "prompt": "Read BUG_REPORT.md, then trace the code starting from src/intervals.js. Form a hypothesis before asking the AI, find the root cause, and make the smallest correct fix. The visible tests already pass, so reproduce the problem yourself first."
+    },
+    {
+      "id": "tests",
+      "title": "Regression Test",
+      "prompt": "Add at least one test to the visible test file that fails on the original code and passes with your fix. Include an edge case beyond the one in the report."
+    },
+    {
+      "id": "review",
+      "title": "Review",
+      "prompt": "Find one other input or code path in this module that could break in a similar way. Fix it or explain precisely what you would change and how you would test it."
+    }
+  ]
+}

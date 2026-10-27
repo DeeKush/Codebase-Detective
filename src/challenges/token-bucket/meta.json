@@ -1,0 +1,9 @@
+{
+  "id": "token-bucket", "title": "Token Bucket Rate Limiter", "difficulty": "Mid", "hasTests": false, "entry": "src/tokenBucket.js",
+  "description": "A per-client rate limiter used by an HTTP middleware. Callers report wrong limits and strange Retry-After headers.",
+  "phases": [
+    { "id": "bugfix", "title": "Bug Fix", "prompt": "Read src/tokenBucket.js, src/keyedLimiter.js and src/middleware.js. Predict what happens for capacity 5, refill 1 token/second: 6 requests at t=0, then one at t=1s. Find every defect (units, boundaries, clocks, headers) and explain each before fixing." },
+    { "id": "implement", "title": "Implement", "prompt": "Add KeyedLimiter.reset(key) and per-key overrides: options may include `overrides: { [key]: { capacity, refillPerSecond } }`. Keep the existing API working and say how you would test it." },
+    { "id": "optimize", "title": "Optimize", "prompt": "KeyedLimiter keeps one bucket per key forever. Describe the failure mode under a million distinct keys and implement or design an eviction strategy (TTL sweep or LRU). State time and space complexity." }
+  ]
+}

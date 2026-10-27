@@ -1,0 +1,11 @@
+--- a/src/emitter.js
++++ b/src/emitter.js
+@@ -28,7 +28,7 @@
+   emit(event, ...args) {
+     const list = this.handlers.get(event);
+     if (!list) return false;
+-    for (const handler of list) handler(...args);
++    for (const handler of [...list]) handler(...args);
+     return true;
+   }
+ 

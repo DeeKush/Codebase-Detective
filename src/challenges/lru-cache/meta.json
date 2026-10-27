@@ -1,0 +1,37 @@
+{
+  "id": "lru-cache",
+  "title": "LRU Cache",
+  "difficulty": "Junior",
+  "runner": "suite",
+  "hasTests": true,
+  "entry": "src/lruCache.js",
+  "description": "A small in-memory cache with a size limit and optional expiry. Operators report that entries they keep reading are still being evicted.",
+  "visibleTests": [
+    "test/lru-cache.test.js"
+  ],
+  "failToPass": [
+    "LRUCache edge cases > reading a falsy value still protects it from eviction",
+    "LRUCache edge cases > empty string and false behave like any other value"
+  ],
+  "origin": {
+    "kind": "authored"
+  },
+  "reviewed": true,
+  "phases": [
+    {
+      "id": "bugfix",
+      "title": "Bug Fix",
+      "prompt": "Read BUG_REPORT.md, then trace the code starting from src/lruCache.js. Form a hypothesis before asking the AI, find the root cause, and make the smallest correct fix. The visible tests already pass, so reproduce the problem yourself first."
+    },
+    {
+      "id": "tests",
+      "title": "Regression Test",
+      "prompt": "Add at least one test to the visible test file that fails on the original code and passes with your fix. Include an edge case beyond the one in the report."
+    },
+    {
+      "id": "review",
+      "title": "Review",
+      "prompt": "Find one other input or code path in this module that could break in a similar way. Fix it or explain precisely what you would change and how you would test it."
+    }
+  ]
+}

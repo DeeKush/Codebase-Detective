@@ -1,0 +1,38 @@
+{
+  "id": "csv-lite",
+  "title": "CSV Lite",
+  "difficulty": "Mid",
+  "runner": "suite",
+  "hasTests": true,
+  "entry": "src/parse.js",
+  "description": "A tiny CSV reader and writer. Importing a customer export produces phantom records.",
+  "visibleTests": [
+    "test/csv-lite.test.js"
+  ],
+  "failToPass": [
+    "csv blank lines > parse ignores blank lines between rows",
+    "csv blank lines > parse ignores blank windows lines and trailing blanks",
+    "csv blank lines > parseObjects does not turn a blank line into a record"
+  ],
+  "origin": {
+    "kind": "authored"
+  },
+  "reviewed": true,
+  "phases": [
+    {
+      "id": "bugfix",
+      "title": "Bug Fix",
+      "prompt": "Read BUG_REPORT.md, then trace the code starting from src/parse.js. Form a hypothesis before asking the AI, find the root cause, and make the smallest correct fix. The visible tests already pass, so reproduce the problem yourself first."
+    },
+    {
+      "id": "tests",
+      "title": "Regression Test",
+      "prompt": "Add at least one test to the visible test file that fails on the original code and passes with your fix. Include an edge case beyond the one in the report."
+    },
+    {
+      "id": "review",
+      "title": "Review",
+      "prompt": "Find one other input or code path in this module that could break in a similar way. Fix it or explain precisely what you would change and how you would test it."
+    }
+  ]
+}

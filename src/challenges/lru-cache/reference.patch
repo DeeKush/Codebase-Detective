@@ -1,0 +1,15 @@
+--- a/src/lruCache.js
++++ b/src/lruCache.js
+@@ -21,10 +21,8 @@
+   get(key) {
+     const entry = this._live(key);
+     if (!entry) return undefined;
+-    if (entry.value) {
+-      this.entries.delete(key);
+-      this.entries.set(key, entry); // mark as most recently used
+-    }
++    this.entries.delete(key);
++    this.entries.set(key, entry); // mark as most recently used
+     return entry.value;
+   }
+ 

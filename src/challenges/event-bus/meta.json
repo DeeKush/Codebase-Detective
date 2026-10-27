@@ -1,0 +1,38 @@
+{
+  "id": "event-bus",
+  "title": "Event Bus",
+  "difficulty": "Mid",
+  "runner": "suite",
+  "hasTests": true,
+  "entry": "src/emitter.js",
+  "description": "A small event emitter and topic bus. Notifications go missing when a listener removes itself.",
+  "visibleTests": [
+    "test/event-bus.test.js"
+  ],
+  "failToPass": [
+    "Emitter while emitting > a once() handler does not make the next handler miss the event",
+    "Emitter while emitting > a handler that unsubscribes itself does not skip its neighbour",
+    "Emitter while emitting > bus subscribeOnce does not hide events from other subscribers"
+  ],
+  "origin": {
+    "kind": "authored"
+  },
+  "reviewed": true,
+  "phases": [
+    {
+      "id": "bugfix",
+      "title": "Bug Fix",
+      "prompt": "Read BUG_REPORT.md, then trace the code starting from src/emitter.js. Form a hypothesis before asking the AI, find the root cause, and make the smallest correct fix. The visible tests already pass, so reproduce the problem yourself first."
+    },
+    {
+      "id": "tests",
+      "title": "Regression Test",
+      "prompt": "Add at least one test to the visible test file that fails on the original code and passes with your fix. Include an edge case beyond the one in the report."
+    },
+    {
+      "id": "review",
+      "title": "Review",
+      "prompt": "Find one other input or code path in this module that could break in a similar way. Fix it or explain precisely what you would change and how you would test it."
+    }
+  ]
+}

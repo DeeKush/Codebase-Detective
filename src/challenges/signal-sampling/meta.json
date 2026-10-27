@@ -1,0 +1,9 @@
+{
+  "id": "signal-sampling", "title": "Convolution and Reservoir Sampling", "difficulty": "Junior", "hasTests": false, "entry": "src/convolve.js",
+  "description": "Two small numeric utilities. Trace them by hand, derive output shapes and find boundary mistakes.",
+  "phases": [
+    { "id": "bugfix", "title": "Bug Fix", "prompt": "Without running anything: give the length of f(x, w) as a formula in n = len(x), k = len(w), compute f([1,2,3,4,5],[1,0,-1]) by hand, then find the boundary bugs in convolve.js and sampling.js." },
+    { "id": "implement", "title": "Implement", "prompt": "Add a `mode` option to convolve: 'valid' (current behaviour), 'same' (output length n, zero padded) and 'full' (n + k - 1). Explain how the kernel is flipped (or not) and what that means for convolution vs correlation." },
+    { "id": "optimize", "title": "Optimize", "prompt": "movingAverage in stats.js recomputes every window from scratch. State its complexity, then make it O(n). Also state the time and space complexity of reservoirSample and argue why it is uniform." }
+  ]
+}
