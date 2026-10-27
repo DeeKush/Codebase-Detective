@@ -40,8 +40,8 @@ export async function verifyPassword(password, stored) {
 }
 const DUMMY = `scrypt$${b64(Buffer.alloc(16))}$${b64(Buffer.alloc(64))}`;
 
-export function signToken(payload) {
-  const body = b64(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + MAX_AGE_S }));
+export function signToken(payload, maxAge = MAX_AGE_S) {
+  const body = b64(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + maxAge }));
   return `${body}.${hmac(body)}`;
 }
 export function readToken(token) {
@@ -55,6 +55,10 @@ export const proofFor = (email, data) => hmac(`proof:${email}:${JSON.stringify(d
 const cookieAttributes = () => `Path=/; HttpOnly; SameSite=Lax${isProduction() ? '; Secure' : ''}`;
 export const sessionCookie = token => `${COOKIE}=${token}; Max-Age=${MAX_AGE_S}; ${cookieAttributes()}`;
 export const clearCookie = () => `${COOKIE}=; Max-Age=0; ${cookieAttributes()}`;
+// Short-lived cookie that ties a Google sign-in attempt to this browser (protects against forged callbacks).
+export const oauthCookie = token => `cd_oauth=${token}; Max-Age=600; ${cookieAttributes()}`;
+export const clearOauthCookie = () => `cd_oauth=; Max-Age=0; ${cookieAttributes()}`;
+export const oauthState = req => readToken(String(req.headers?.cookie || '').split(';').map(c => c.trim().split('=')).find(([k]) => k === 'cd_oauth')?.[1]);
 const cookieValue = req => String(req.headers?.cookie || '').split(';').map(c => c.trim().split('=')).find(([k]) => k === COOKIE)?.[1];
 
 /** Returns {email, name} for a valid session cookie, otherwise null. */
@@ -91,4 +95,14 @@ export async function logIn({ email, password }) {
   const ok = await verifyPassword(password, user?.hash ?? DUMMY); // same work whether or not the account exists
   if (!user || !ok) throw new HttpError(401, 'Email or password is incorrect.');
   return { email: id, name: user.name };
+}
+
+/** Finds or creates the account for a Google-verified email. Never overwrites an existing password. */
+export async function signInWithGoogle({ email, name }) {
+  const id = normalizeEmail(email), store = getStore();
+  const existing = await store.get(`user:${id}`);
+  if (existing) return { email: id, name: JSON.parse(existing).name };
+  const display = String(name || id.split('@')[0]).trim().slice(0, 60);
+  await store.setIfAbsent(`user:${id}`, JSON.stringify({ name: display, hash: null, provider: 'google', createdAt: Date.now() }));
+  return { email: id, name: display };
 }

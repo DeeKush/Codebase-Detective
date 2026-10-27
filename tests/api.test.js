@@ -106,3 +106,68 @@ test('hidden tests, the reference fix and bug-exposing test names are not in the
     assert.ok(!bundle.includes(secret), `leaked: ${secret}`);
   }
 });
+
+// ---- Sign in with Google ----------------------------------------------------------------------------------------
+function invokeRaw(handler, { method = 'GET', headers = {}, query } = {}) {
+  return new Promise(async resolve => {
+    const out = { headers: {} };
+    const res = { status(code) { out.code = code; return this; }, json(data) { out.data = data; resolve(out); }, setHeader(k, v) { out.headers[k] = v; }, end() { resolve(out); } };
+    await handler.default({ method, headers, query }, res);
+  });
+}
+const idToken = claims => `h.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.s`;
+const googleReply = claims => { globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ id_token: idToken(claims) }) }); };
+const goodClaims = (extra = {}) => ({ iss: 'https://accounts.google.com', aud: 'client-123', exp: Math.floor(Date.now() / 1000) + 600, email: 'Gina@Example.com', email_verified: true, name: 'Gina G', ...extra });
+
+test('google: the config endpoint reports whether Google is set up', async () => {
+  delete process.env.GOOGLE_CLIENT_ID; delete process.env.GOOGLE_CLIENT_SECRET;
+  assert.equal((await invokeRaw(auth, { query: { action: 'config' } })).data.google, false);
+  process.env.GOOGLE_CLIENT_ID = 'client-123'; process.env.GOOGLE_CLIENT_SECRET = 'secret-456';
+  assert.equal((await invokeRaw(auth, { query: { action: 'config' } })).data.google, true);
+});
+
+test('google: sign-in redirects to Google with a state that is bound to this browser', async () => {
+  const out = await invokeRaw(auth, { query: { action: 'google' }, headers: { host: 'app.example.com', 'x-forwarded-proto': 'https' } });
+  assert.equal(out.code, 302);
+  const url = new URL(out.headers.Location);
+  assert.equal(url.origin + url.pathname, 'https://accounts.google.com/o/oauth2/v2/auth');
+  assert.equal(url.searchParams.get('client_id'), 'client-123');
+  assert.equal(url.searchParams.get('redirect_uri'), 'https://app.example.com/api/auth/google-callback');
+  assert.match(out.headers['Set-Cookie'], /cd_oauth=.*HttpOnly/);
+  assert.ok(url.searchParams.get('state').length >= 20);
+});
+
+async function startGoogle() {
+  const out = await invokeRaw(auth, { query: { action: 'google' }, headers: { host: 'app.example.com' } });
+  return { state: new URL(out.headers.Location).searchParams.get('state'), cookie: out.headers['Set-Cookie'].split(';')[0] };
+}
+
+test('google: a valid callback signs the user in and creates the account', async () => {
+  const { state, cookie } = await startGoogle();
+  googleReply(goodClaims());
+  const out = await invokeRaw(auth, { query: { action: 'google-callback', code: 'abc', state }, headers: { host: 'app.example.com', cookie } });
+  assert.equal(out.code, 302);
+  assert.equal(out.headers.Location, '/');
+  const session = out.headers['Set-Cookie'].find(c => c.startsWith('cd_session='));
+  const me = await invoke(auth, { method: 'GET', query: { action: 'me' }, headers: { cookie: session.split(';')[0] } });
+  assert.deepEqual(me.data.user, { email: 'gina@example.com', name: 'Gina G' });
+  const stored = JSON.parse(await (await import('../api/_lib/store.js')).getStore().get('user:gina@example.com'));
+  assert.equal(stored.hash, null);
+  const passwordLogin = await invoke(auth, { query: { action: 'login' }, body: { email: 'gina@example.com', password: 'anything at all' } });
+  assert.equal(passwordLogin.code, 401);
+});
+
+test('google: forged state, missing cookie, unverified email, wrong audience and denied consent all end safely', async () => {
+  const { state, cookie } = await startGoogle();
+  const run = (query, headers = {}) => invokeRaw(auth, { query: { action: 'google-callback', ...query }, headers: { host: 'app.example.com', ...headers } });
+  googleReply(goodClaims());
+  assert.match((await run({ code: 'abc', state: 'forged' }, { cookie })).headers.Location, /auth_error=google_state/);
+  assert.match((await run({ code: 'abc', state })).headers.Location, /auth_error=google_state/);
+  googleReply(goodClaims({ email_verified: false }));
+  assert.match((await run({ code: 'abc', state }, { cookie })).headers.Location, /auth_error=google_failed/);
+  googleReply(goodClaims({ aud: 'someone-elses-client' }));
+  assert.match((await run({ code: 'abc', state }, { cookie })).headers.Location, /auth_error=google_failed/);
+  googleReply(goodClaims({ exp: 1 }));
+  assert.match((await run({ code: 'abc', state }, { cookie })).headers.Location, /auth_error=google_failed/);
+  assert.match((await run({ error: 'access_denied' })).headers.Location, /auth_error=google_denied/);
+});

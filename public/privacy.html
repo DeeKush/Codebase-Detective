@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy · Codebase Detective</title><link rel="icon" href="/favicon.svg"><style>body{font:16px/1.65 system-ui,sans-serif;max-width:720px;margin:0 auto;padding:32px 20px;color:#172030;background:#f4f6f9}h1{font-size:30px;margin-bottom:4px}h2{margin-top:32px;font-size:20px}a{color:#0b6d7d}.muted{color:#566274}@media(prefers-color-scheme:dark){body{background:#14181f;color:#e6ebf2}a{color:#5cc8d6}.muted{color:#98a3b4}}</style></head><body>
+<p><a href="/">&larr; Codebase Detective</a></p>
+<h1>Privacy</h1><p class="muted">Last updated 27 October 2026</p>
+<p>Codebase Detective is a practice tool for code-comprehension interviews. This page says what it stores, where it goes and what it does not do.</p>
+<h2>What we store</h2>
+<ul>
+<li><strong>Account:</strong> your name and email address. For email sign-up, a salted scrypt hash of your password (never the password). For Google sign-in, only the name and verified email Google returns; we do not store Google tokens.</li>
+<li><strong>Your rounds:</strong> the round in progress (your code edits, written answers, notes, AI conversation and timings) and a short history of finished rounds with their scores.</li>
+<li><strong>Cookie:</strong> one essential, HttpOnly session cookie that keeps you signed in for 7 days. There are no advertising or analytics cookies and no trackers.</li>
+<li><strong>In your browser:</strong> a cached copy of your current round so a reload does not lose work.</li>
+</ul>
+<h2>Who receives data</h2>
+<ul>
+<li><strong>Groq</strong> receives your questions to the AI coach, the code you are working on, and, when you submit, your answers, diff and notes so a report can be written. Groq processes this under its own terms.</li>
+<li><strong>Upstash</strong> (database) and <strong>Vercel</strong> (hosting and the isolated sandbox that runs the hidden tests) process the data above on our behalf.</li>
+<li><strong>Google</strong> receives a request only if you choose Sign in with Google. Fonts are loaded from Google Fonts.</li>
+<li>We do not sell data or share it with anyone else.</li>
+</ul>
+<h2>Your choices</h2>
+<p>Starting a new interview from a report page discards that round's saved work and notes; a one-line history entry (case name, date, score) remains. To have your account and all stored rounds deleted, open an issue at <a href="https://github.com/suryawanshiheramb11/deepak/issues">the project repository</a> from the email address you signed up with.</p>
+<h2>Security</h2>
+<p>Passwords are hashed, traffic uses HTTPS, API keys stay on the server, and your code runs in your browser or in a network-less sandbox. No system is perfectly secure; do not paste real secrets into the editor or the AI chat.</p>
+</body></html>

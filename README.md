@@ -18,7 +18,7 @@ Hiring tests usually ask people to write fresh code on a blank page. Real work i
 
 ## Solution and key features
 
-1. **Accounts and saved rounds.** Sign up and log in (scrypt-hashed passwords, HttpOnly signed cookies). The in-progress round is saved to the server, restored after a reload or on another device, and finished rounds appear in a history list.
+1. **Accounts and saved rounds.** Sign up and log in with email or Google (scrypt-hashed passwords, HttpOnly signed cookies). The in-progress round is saved to the server, restored after a reload or on another device, and finished rounds appear in a history list.
 2. **Random, time-boxed assignment.** A case is drawn at random from 8 codebases (recent ones are avoided). The candidate picks 10, 30 or 60 minutes; shorter rounds cover fewer phases (Bug Fix, then Regression Test, then Review). Time running out submits the work automatically.
 3. **Real test execution.** The tests the candidate can see run in a Web Worker with a purpose-built mocha-style runner. Hidden tests, including the one that exposes the bug, run on the server in an isolated Vercel Sandbox (no network, no secrets) when the round is submitted.
 4. **AI coach with limits.** The assistant reads the candidate's files through a server endpoint, so the key never reaches the browser. It cannot edit or run code, and every prompt becomes evidence.
@@ -46,7 +46,7 @@ api/            Vercel functions. _lib/ holds auth (scrypt, HMAC cookies), store
 src/challenges/ One folder per case: meta.json, files/ (shown to the candidate), and server-only hidden/,
                 reference.patch, grading.json.
 scripts/        ingest.mjs turns open-source bug-fix commits into new case bundles (reviewed:false until approved).
-tests/          33 tests: runner, auth, API, grading, scoring, and a check that every case is fair and no hidden test text is in the browser bundle.
+tests/          37 tests: runner, auth, API, grading, scoring, and a check that every case is fair and no hidden test text is in the browser bundle.
 ```
 
 ## Local setup
@@ -55,7 +55,7 @@ tests/          33 tests: runner, auth, API, grading, scoring, and a check that 
 npm install
 cp .env.example .env.local      # then fill GROQ_API_KEY and AUTH_SECRET (see below)
 npm run dev                     # UI and /api routes on http://localhost:3000
-npm test                        # 33 tests
+npm test                        # 37 tests
 npm run build                   # production build in dist/
 ```
 
@@ -70,14 +70,28 @@ Documented in `.env.example`; real values live in `.env.local` (git-ignored) or 
 | `GROQ_API_KEY` | Yes | Groq key for the AI coach and the report. Server-side only. |
 | `AUTH_SECRET` | Yes in production | 16+ random characters; signs session cookies and grading proofs. |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Yes in production | Upstash Redis REST URL and token. Empty locally. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | No | Enables Sign in with Google (see below). |
 | `GRADER` | No | `local` for development only. Leave unset in production to grade in Vercel Sandbox. |
 | `GROQ_MODEL` | No | Defaults to `openai/gpt-oss-120b`. |
+
+## Sign in with Google (Google Cloud Console)
+
+The email form always works; the Google button appears only when both Google variables are set.
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/), create or pick a project.
+2. **APIs & Services -> OAuth consent screen**: choose *External*, set the app name and support email, add your deployed domain under *Authorized domains*, and set the privacy policy to `https://<your-domain>/privacy.html` and terms to `https://<your-domain>/terms.html`. The scopes `openid`, `email` and `profile` are non-sensitive and need no Google review. Publish the app (or add test users while it is in *Testing*).
+3. **APIs & Services -> Credentials -> Create credentials -> OAuth client ID -> Web application**:
+   - Authorized JavaScript origins: `https://<your-domain>` and `http://localhost:3000`
+   - Authorized redirect URIs: `https://<your-domain>/api/auth/google-callback` and `http://localhost:3000/api/auth/google-callback`
+4. Copy the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (`.env.local` locally, Vercel environment variables in production) and redeploy.
+
+The flow is the OAuth 2.0 authorization-code flow on the server: a random `state` is bound to the browser by a short-lived HttpOnly cookie, the code is exchanged server-side with the client secret, and the ID token's issuer, audience, expiry and `email_verified` are checked before a session cookie is issued. Google tokens are not stored.
 
 ## Deployment
 
 1. Create a free Upstash Redis database (Vercel Marketplace: `vercel integration add upstash/upstash-kv`, or the Upstash console) and copy its REST URL and token.
 2. In Vercel, import this repository with **Root Directory = `web`**.
-3. Add `GROQ_API_KEY`, `AUTH_SECRET`, `KV_REST_API_URL` and `KV_REST_API_TOKEN` as environment variables, then deploy.
+3. Add `GROQ_API_KEY`, `AUTH_SECRET`, `KV_REST_API_URL` and `KV_REST_API_TOKEN` (and the two Google variables, if you want Google sign-in) as environment variables, then deploy.
 
 `vercel.json` already bundles the case data into the functions and sets security headers.
 
