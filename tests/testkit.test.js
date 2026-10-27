@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runSuite } from '../src/testkit.js';
-import { score, testPoints } from '../src/score.js';
+import { scoreResults } from '../api/_lib/challenges.js';
 
 const files = {
   'index.js': "module.exports = function clamp(n, lo, hi) { return n < lo ? lo : n > hi ? hi : n; };",
@@ -41,9 +41,8 @@ test('skip omits tests and a hung test times out', async () => {
   assert.deepEqual(results.map(r => [r.id, r.outcome]), [['a > hang', 'failed']]);
 });
 
-test('generic scoring weights bug-exposing tests three times', () => {
-  const challenge = { runner: 'suite', failToPass: ['a > bug'] };
-  assert.equal(testPoints(challenge, 'a > bug'), 3);
+test('server scoring weights bug-exposing tests three times', () => {
+  const challenge = { failToPass: ['a > bug'] };
   const tests = [{ id: 'a > bug', outcome: 'failed' }, { id: 'a > ok', outcome: 'passed' }];
-  assert.deepEqual(score(tests, 'completed', challenge), { passedPoints: 1, totalPoints: 4, correctness: 8.75 });
+  assert.deepEqual(scoreResults(challenge, tests), { passedPoints: 1, totalPoints: 4, correctness: 8.75 });
 });

@@ -1,8 +1,11 @@
 import { findChallenge } from './challenges/index.js';
-import { currentUser } from './auth.js';
+import { saveRemoteSession, clearRemoteSession } from './api.js';
 
-// One saved round per signed-in user, so people sharing a browser never see each other's work.
-const key = () => `codebaseDetective.session.v3.${currentUser()?.email ?? 'guest'}`;
+// The round is cached in this browser for instant reloads and mirrored to the server, so it follows the user to another device.
+// The cache is scoped to the signed-in email via setSessionOwner().
+let owner = 'guest';
+export const setSessionOwner = email => { owner = email || 'guest'; };
+const key = () => `codebaseDetective.session.v4.${owner}`;
 const RECENT_KEY = 'codebaseDetective.recentCases';
 export const DURATIONS = [
   { minutes: 10, label: 'Quick check', phases: 1, blurb: 'Find and fix one bug.' },
@@ -12,15 +15,30 @@ export const DURATIONS = [
 export const DEFAULT_MINUTES = 30;
 export const emptyAnswers = { rootCause: '', implementation: '', verification: '', aiSupervision: '' };
 
+const valid = session => session && findChallenge(session.challengeId) ? session : null;
 export function loadSession() {
-  try {
-    const session = JSON.parse(localStorage.getItem(key()));
-    return session && findChallenge(session.challengeId) ? session : null;
-  } catch { return null; }
+  try { return valid(JSON.parse(localStorage.getItem(key()))); } catch { return null; }
+}
+/** Picks the newer of the local copy and the server copy. */
+export function mergeRemoteSession(local, remote) {
+  const usable = valid(remote);
+  if (!usable) return local;
+  return !local || (usable.updatedAt ?? 0) > (local.updatedAt ?? 0) ? usable : local;
+}
+
+let timer, pending;
+function flush() {
+  const session = pending; pending = undefined; timer = undefined;
+  (session === null ? clearRemoteSession() : saveRemoteSession(session)).catch(() => { /* offline: the local copy still holds the work and syncs on the next change */ });
 }
 export function saveSession(session) {
-  try { session ? localStorage.setItem(key(), JSON.stringify(session)) : localStorage.removeItem(key()); } catch { /* storage unavailable: session stays in memory */ }
+  const stamped = session ? { ...session, updatedAt: Date.now() } : null;
+  try { stamped ? localStorage.setItem(key(), JSON.stringify(stamped)) : localStorage.removeItem(key()); } catch { /* storage unavailable: session stays in memory */ }
+  pending = stamped; clearTimeout(timer);
+  timer = setTimeout(flush, stamped ? 1500 : 0);
 }
+export function flushSessionNow() { if (timer) { clearTimeout(timer); flush(); } }
+
 export function recentCases() {
   try { const v = JSON.parse(localStorage.getItem(RECENT_KEY)); return Array.isArray(v) ? v : []; } catch { return []; }
 }

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { challenges, findChallenge, drawChallenge } from './challenges/index.js';
 import { DURATIONS, DEFAULT_MINUTES, phasesForMinutes, recentCases, rememberCase } from './session.js';
-import { rounds } from './auth.js';
 
 const DRAWN_KEY = 'codebaseDetective.drawnCase';
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -62,8 +61,8 @@ function Briefing({ challenge, minutes, onStart, onBack }) {
   );
 }
 
-function PastRounds() {
-  const list = rounds().slice(0, 5);
+function PastRounds({ rounds }) {
+  const list = rounds.slice(0, 5);
   if (!list.length) return null;
   return (
     <>
@@ -72,7 +71,7 @@ function PastRounds() {
         {list.map(r => (
           <li key={r.sessionId}>
             <strong>{r.title}</strong>
-            <span>{r.minutes} min · {new Date(r.at).toLocaleDateString()} · {r.score == null ? 'not scored' : `${r.score} / 100`}</span>
+            <span>{r.minutes ? `${r.minutes} min · ` : ''}{new Date(r.at).toLocaleDateString()} · {r.score == null ? 'not scored' : `${r.score} / 100`}{r.testsTotal ? ` · ${r.testsPassed}/${r.testsTotal} tests` : ''}</span>
           </li>
         ))}
       </ul>
@@ -80,7 +79,7 @@ function PastRounds() {
   );
 }
 
-export default function Landing({ user, onStart, onLogout }) {
+export default function Landing({ user, rounds = [], onStart, onLogout }) {
   const [minutes, setMinutes] = useState(DEFAULT_MINUTES);
   const [drawn, setDrawn] = useState(() => findChallenge(new URLSearchParams(location.search).get('case')) || findChallenge(read()) || null);
   const [phase, setPhase] = useState(drawn ? 'brief' : 'pick'); // pick -> reel -> brief
@@ -141,7 +140,7 @@ export default function Landing({ user, onStart, onLogout }) {
           <ol className="steps">
             {STEPS.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}
           </ol>
-          <PastRounds />
+          <PastRounds rounds={rounds} />
           <h2>What you are scored on</h2>
           <ul className="criteria">
             <li><strong>Code reading</strong> tracing what the code actually does</li>

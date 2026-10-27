@@ -7,20 +7,12 @@ export const TESTS = [
   { id: 'duplicate', description: 'Duplicate IDs are rejected', points: 4 }
 ];
 
-const FAIL_TO_PASS_WEIGHT = 3; // tests that expose the bug count three times a regression guard
+export const testLabel = (challenge, id) => challenge?.runner === 'suite' ? id : TESTS.find(x => x.id === id)?.description || id;
 
-export function testPoints(challenge, id) {
-  if (!challenge || challenge.runner !== 'suite') return TESTS.find(x => x.id === id)?.points ?? 0;
-  return challenge.failToPass?.includes(id) ? FAIL_TO_PASS_WEIGHT : 1;
-}
-export function testLabel(challenge, id) {
-  return (!challenge || challenge.runner !== 'suite') ? TESTS.find(x => x.id === id)?.description || id : id;
-}
-
-export function score(tests, status, challenge) {
+// Legacy (retry-queue) scoring, run in the browser. Suite challenges are scored by the server and arrive as run.score.
+export function score(tests, status) {
   if (status !== 'completed' || !tests || tests.some(t => t.outcome === 'skipped' || t.outcome === 'error')) return null;
-  const totalPoints = tests.reduce((n, t) => n + testPoints(challenge, t.id), 0);
-  if (!totalPoints) return null;
-  const passedPoints = tests.filter(t => t.outcome === 'passed').reduce((n, t) => n + testPoints(challenge, t.id), 0);
+  const totalPoints = TESTS.reduce((n, t) => n + t.points, 0);
+  const passedPoints = tests.filter(t => t.outcome === 'passed').reduce((n, t) => n + (TESTS.find(x => x.id === t.id)?.points ?? 0), 0);
   return { passedPoints, totalPoints, correctness: Math.round(3500 * passedPoints / totalPoints) / 100 };
 }

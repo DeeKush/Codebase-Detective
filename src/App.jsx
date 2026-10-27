@@ -3,11 +3,11 @@ import Editor, { DiffEditor } from '@monaco-editor/react';
 import { findChallenge } from './challenges/index.js';
 import { score, testLabel } from './score.js';
 import { runTests } from './runner.js';
-import { askAssistant, assess } from './api.js';
-import { loadSession, saveSession, newSession } from './session.js';
+import { askAssistant, assess, gradeSubmission, fetchState, setUnauthorizedHandler } from './api.js';
+import { loadSession, saveSession, newSession, setSessionOwner, mergeRemoteSession, flushSessionNow } from './session.js';
 import Landing from './Landing.jsx';
 import Welcome from './Welcome.jsx';
-import { currentUser, logOut, recordRound } from './auth.js';
+import { currentUser, logOut } from './auth.js';
 import FileTree from './FileTree.jsx';
 import Report from './Report.jsx';
 import { useNarration } from './useNarration.js';
@@ -27,10 +27,11 @@ function Message({ text }) {
 function TestList({ run, challenge }) {
   if (!run) return <p className="muted">No test run yet.</p>;
   if (!run.tests) return <p className="error">{run.diagnostic}</p>;
-  const points = score(run.tests, run.status, challenge);
+  const points = challenge.runner === 'suite' ? null : score(run.tests, run.status);
+  const passing = run.tests.filter(t => t.outcome === 'passed').length;
   return (
     <div>
-      <p><strong>{points ? `${points.passedPoints}/${points.totalPoints} points` : 'Run incomplete'}</strong></p>
+      <p><strong>{challenge.runner === 'suite' ? `${passing}/${run.tests.length} tests passing` : points ? `${points.passedPoints}/${points.totalPoints} points` : 'Run incomplete'}</strong></p>
       {run.tests.map(t => (
         <details key={t.id} open={t.outcome !== 'passed'}>
           <summary className={t.outcome}>{t.outcome === 'passed' ? '✓' : '✗'} {testLabel(challenge, t.id)}</summary>
@@ -42,8 +43,10 @@ function TestList({ run, challenge }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(currentUser);
-  const [session, setSession] = useState(loadSession);
+  const [user, setUser] = useState(null);
+  const [booting, setBooting] = useState(true);
+  const [rounds, setRounds] = useState([]);
+  const [session, setSession] = useState(null);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -64,6 +67,21 @@ export default function App() {
   const elapsed = () => (Date.now() - session.startedAt) / 1000;
   const update = patch => setSession(old => { const next = { ...old, ...(typeof patch === 'function' ? patch(old) : patch) }; saveSession(next); return next; });
 
+  async function enter(u) {
+    setSessionOwner(u.email);
+    const local = loadSession();
+    setUser(u); setSession(local);
+    try {
+      const state = await fetchState();
+      setRounds(state.rounds);
+      setSession(mergeRemoteSession(local, state.session));
+    } catch { /* offline: the cached local round is used */ }
+  }
+  function leave() { setUser(null); setSession(null); setRounds([]); setSessionOwner(null); }
+  useEffect(() => {
+    setUnauthorizedHandler(leave);
+    currentUser().then(u => u && enter(u)).finally(() => setBooting(false));
+  }, []);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { document.documentElement.dataset.theme = theme; try { localStorage.setItem('codebaseDetective.theme', theme); } catch { /* ignore */ } }, [theme]);
 
@@ -83,11 +101,19 @@ export default function App() {
     return events.sort((a, b) => a.at - b.at);
   }, [session]);
 
+  // Suite challenges are graded on the server (hidden tests, isolated sandbox); a failure here is recorded and retried when the report is generated.
+  async function finalGrade(files) {
+    if (challenge.runner !== 'suite') return runTests(files, challenge);
+    const startedAt = Date.now();
+    try { return { id: crypto.randomUUID(), startedAt, finishedAt: Date.now(), ...(await gradeSubmission({ challengeId: challenge.id, files })) }; }
+    catch (e) { return { id: crypto.randomUUID(), startedAt, finishedAt: Date.now(), status: 'failed', tests: null, diagnostic: e.message }; }
+  }
+
   async function submit() {
     if (submitting.current) return;
     submitting.current = true; setShowSubmit(false); setBusy('Submitting…'); setError('');
     try {
-      const finalRun = challenge.hasTests ? await runTests(session.files, challenge, 'final') : null;
+      const finalRun = challenge.hasTests ? await finalGrade(session.files) : null;
       const phases = session.phases.map((p, i) => i === session.phase && !p.completedAt && p.startedAt ? { ...p, completedAt: Date.now() } : p);
       update({ status: 'COMPLETED', phases, submission: { files: session.files, finalRun, submittedAt: Date.now() } });
     } finally { submitting.current = false; setBusy(''); }
@@ -97,22 +123,26 @@ export default function App() {
   async function generateReport() {
     setBusy('Scoring…'); setError('');
     try {
-      const { submission, answers, chat, narration, phases, startedAt } = session;
+      let { submission } = session;
+      if (challenge.runner === 'suite' && !submission.finalRun?.tests) {
+        submission = { ...submission, finalRun: await finalGrade(submission.files) };
+        update({ submission });
+        if (!submission.finalRun.tests) throw new Error(submission.finalRun.diagnostic || 'The hidden tests could not be run.');
+      }
+      const { answers, chat, narration, phases, startedAt } = session;
       const { report } = await assess({
-        answers, baseline: challenge.files, files: submission.files, reference: challenge.reference || '',
-        tests: (submission.finalRun?.tests || []).map(t => ({ ...t, description: testLabel(challenge, t.id) })),
+        challengeId: challenge.id, sessionId: session.id, minutes: session.minutes, proof: submission.finalRun?.proof,
+        answers, baseline: challenge.files, files: submission.files,
+        tests: (submission.finalRun?.tests || []).map(t => ({ id: t.id, outcome: t.outcome, description: testLabel(challenge, t.id) })),
         phases: phases.map(p => ({ title: p.title, status: p.completedAt ? 'completed' : 'incomplete', seconds: p.completedAt ? (p.completedAt - p.startedAt) / 1000 : 0 })),
         narration: narration.map(n => ({ t: n.t, text: n.text })),
         chat: chat.map(c => ({ t: (c.at - startedAt) / 1000, mode: c.mode, question: c.question, answer: c.answer }))
       });
       update({ report });
+      fetchState().then(state => setRounds(state.rounds)).catch(() => {});
     } catch (e) { setError(e.message); } finally { setBusy(''); }
   }
   useEffect(() => { if (session?.status === 'COMPLETED' && !session.report && !busy) void generateReport(); }, [session?.status]);
-
-  useEffect(() => {
-    if (session?.report && user) recordRound({ sessionId: session.id, challengeId: session.challengeId, title: challenge?.title ?? session.challengeId, minutes: session.minutes ?? 60, score: session.report.overallScore ?? null, at: session.submission?.submittedAt ?? Date.now() });
-  }, [session?.report]);
 
   async function run() {
     setBusy('Running tests…'); setError('');
@@ -145,8 +175,9 @@ export default function App() {
   const changed = useMemo(() => new Set(session ? Object.keys(session.files).filter(f => session.files[f] !== challenge.files[f]) : []), [session, challenge]);
   const lang = path => path.endsWith('.md') ? 'markdown' : path.endsWith('.json') ? 'json' : 'javascript';
 
-  if (!user) return <Welcome onAuth={u => { setUser(u); setSession(loadSession()); }} />;
-  if (!session) return <Landing user={user} onLogout={() => { logOut(); setUser(null); setSession(null); }} onStart={(c, minutes) => { const s = newSession(c, minutes); saveSession(s); setSession(s); }} />;
+  if (booting) return <main className="lobby"><p className="lede" role="status">Loading…</p></main>;
+  if (!user) return <Welcome onAuth={enter} />;
+  if (!session) return <Landing user={user} rounds={rounds} onLogout={async () => { flushSessionNow(); await logOut(); leave(); }} onStart={(c, minutes) => { const s = newSession(c, minutes); saveSession(s); setSession(s); }} />;
   if (session.status === 'COMPLETED') return <Report session={session} challenge={challenge} onRetry={generateReport} busy={busy} error={error} />;
 
   const phase = session.phases[session.phase].prompt ? session.phases[session.phase] : challenge.phases[session.phase];

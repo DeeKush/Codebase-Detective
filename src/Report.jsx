@@ -1,6 +1,7 @@
 import React from 'react';
 import { score, testLabel } from './score.js';
 import { saveSession } from './session.js';
+import { clearRemoteSession } from './api.js';
 
 const LABELS = { codeReading: 'Code reading', debugging: 'Debugging', aiFluency: 'AI fluency', communication: 'Communication' };
 const fmt = s => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
@@ -8,7 +9,7 @@ const fmt = s => `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 export default function Report({ session, challenge, onRetry, busy, error }) {
   const { submission, report } = session;
   const run = submission.finalRun;
-  const points = run?.tests ? score(run.tests, run.status, challenge) : null;
+  const points = run?.tests ? (run.score || score(run.tests, run.status)) : null;
   return (
     <main className="report">
       <h1>Interview report</h1>
@@ -47,7 +48,7 @@ export default function Report({ session, challenge, onRetry, busy, error }) {
           </>
         )}
       </section>
-      <button className="secondary" onClick={() => { saveSession(null); location.reload(); }}>Start a new interview</button>
+      <button className="secondary" onClick={async () => { await clearRemoteSession().catch(() => {}); saveSession(null); location.reload(); }}>Start a new interview</button>
     </main>
   );
 }

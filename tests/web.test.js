@@ -39,12 +39,16 @@ test('a load error fails every test instead of crashing', async () => {
   assert.ok(tests.every(t => t.outcome === 'failed'));
 });
 
-async function call(handler, body, fetchImpl) {
+process.env.STORE = 'memory'; process.env.GRADER = 'local'; process.env.AUTH_SECRET = 'test-secret-test-secret';
+const { signToken } = await import('../api/_lib/auth.js');
+const cookie = `cd_session=${signToken({ sub: 'tester@example.com', name: 'Tester' })}`;
+
+async function call(handler, body, fetchImpl, headers = { cookie }) {
   process.env.GROQ_API_KEY = 'test-key';
   globalThis.fetch = fetchImpl;
   let out;
-  const res = { status(code) { out = { code }; return this; }, json(data) { out.data = data; } };
-  await handler.default({ method: 'POST', body }, res);
+  const res = { status(code) { out = { code }; return this; }, json(data) { out.data = data; }, setHeader() {} };
+  await handler.default({ method: 'POST', body, headers }, res);
   return out;
 }
 const groqReply = content => async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ finish_reason: 'stop', message: { content } }] }) });
@@ -56,11 +60,12 @@ test('chat route returns the model answer and rejects oversize input', async () 
   assert.equal(ok.data.answer, 'because');
   const bad = await call(chat, { question: 'x'.repeat(2001) }, groqReply('no'));
   assert.equal(bad.code, 400);
+  assert.equal((await call(chat, { question: 'hi' }, groqReply('no'), {})).code, 401, 'anonymous callers cannot spend the Groq quota');
 });
 
 test('assess route validates scores and evidence ids', async () => {
   const assess = await import('../api/assess.js');
-  const body = { answers: { rootCause: 'timer not cleared' }, baseline: { 'queue.js': 'a' }, files: { 'queue.js': 'b' }, narration: [{ t: 12, text: 'I suspect the retry timer' }], chat: [{ t: 30, mode: 'investigate', question: 'q', answer: 'a' }] };
+  const body = { challengeId: 'token-bucket', sessionId: 's1', minutes: 30, answers: { rootCause: 'timer not cleared' }, baseline: { 'queue.js': 'a' }, files: { 'queue.js': 'b' }, narration: [{ t: 12, text: 'I suspect the retry timer' }], chat: [{ t: 30, mode: 'investigate', question: 'q', answer: 'a' }] };
   const criteria = ids => ['codeReading', 'debugging', 'aiFluency', 'communication'].map(id => ({ id, points: 5, rationale: 'r', evidenceIds: ids, confidence: 'low' }));
   const reply = (ids, extra = {}) => groqReply(JSON.stringify({ criteria: criteria(ids), strengths: [], improvements: [], exercises: [], summary: 's', limitations: [], ...extra }));
   const ok = await call(assess, body, reply(['diff:queue.js', 'narration:0', 'chat:0']));
@@ -81,7 +86,7 @@ test('every challenge has files, three phases and a real entry file', async () =
 });
 
 test('the API rate limit blocks a burst from one client and not another', async () => {
-  const { rateLimited } = await import('../api/_groq.js');
+  const { rateLimited } = await import('../api/_lib/http.js');
   const now = 1_000_000;
   const results = Array.from({ length: 31 }, () => rateLimited('1.2.3.4', { limit: 30, now }));
   assert.equal(results.slice(0, 30).some(Boolean), false);
