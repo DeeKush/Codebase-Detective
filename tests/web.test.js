@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { runCases } from '../src/harness.js';
 import { score } from '../src/score.js';
@@ -27,7 +28,7 @@ test('browser harness matches the packaged Node harness on the starter', async (
   // The original harness require()s CommonJS, so run it against a copy outside this ES-module package.
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'harness-'));
   for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(tmp, name), content);
-  const expected = JSON.parse(execFileSync(process.execPath, [new URL('./fixtures/harness.cjs', import.meta.url).pathname, tmp])).tests;
+  const expected = JSON.parse(execFileSync(process.execPath, [fileURLToPath(new URL('./fixtures/harness.cjs', import.meta.url)), tmp])).tests;
   fs.rmSync(tmp, { recursive: true, force: true });
   assert.deepEqual(tests.map(t => [t.id, t.outcome]), expected.map(t => [t.id, t.outcome]));
   assert.ok(score(tests, 'completed'));

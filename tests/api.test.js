@@ -74,7 +74,7 @@ test('hidden tests run on the server: the buggy starter fails them, the referenc
   assert.ok(buggy.data.tests.every(t => Object.keys(t).sort().join() === 'id,outcome'));
   assert.ok(buggy.data.score.correctness < 35);
   const fixedFiles = starter();
-  fixedFiles['src/lruCache.js'] = fixedFiles['src/lruCache.js'].replace(/    if \(entry\.value\) \{\n      this\.entries\.delete\(key\);\n      this\.entries\.set\(key, entry\); \/\/ mark as most recently used\n    \}/, '    this.entries.delete(key);\n    this.entries.set(key, entry);');
+  fixedFiles['src/lruCache.js'] = fixedFiles['src/lruCache.js'].replace(/    if \(entry\.value\) \{\r?\n      this\.entries\.delete\(key\);\r?\n      this\.entries\.set\(key, entry\); \/\/ mark as most recently used\r?\n    \}/, '    this.entries.delete(key);\n    this.entries.set(key, entry);');
   const fixed = await invoke(grade, { body: { challengeId: 'lru-cache', files: fixedFiles }, headers });
   assert.equal(fixed.data.score.correctness, 35);
   assert.equal((await invoke(grade, { body: { challengeId: '../etc', files: fixedFiles }, headers })).code, 400);

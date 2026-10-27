@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { runSuite } from '../src/testkit.js';
 
 // Every authored or ingested "suite" challenge must be fair: visible tests pass, hidden tests catch the bug,
 // and the reference patch fixes it. This is the same check the ingest pipeline applies to OSS bundles.
-const base = new URL('../src/challenges/', import.meta.url).pathname;
+const base = fileURLToPath(new URL('../src/challenges/', import.meta.url));
 const read = dir => {
   const out = {};
   const walk = (d, prefix) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) e.isDirectory() ? walk(path.join(d, e.name), `${prefix}${e.name}/`) : out[prefix + e.name] = fs.readFileSync(path.join(d, e.name), 'utf8'); };

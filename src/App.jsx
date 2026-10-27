@@ -11,6 +11,7 @@ import { currentUser, logOut } from './auth.js';
 import FileTree from './FileTree.jsx';
 import Report from './Report.jsx';
 import { useNarration } from './useNarration.js';
+import MarkdownMessage from './MarkdownMessage.jsx';
 
 const clock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
 const stamp = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -20,8 +21,7 @@ const EDITOR_FONT = "'JetBrains Mono','Fira Code',ui-monospace,Menlo,monospace";
 const EDITOR_OPTIONS = { minimap: { enabled: false }, fontSize: 14, fontFamily: EDITOR_FONT, fontLigatures: true, automaticLayout: true, scrollBeyondLastLine: false, quickSuggestions: false, suggestOnTriggerCharacters: false, parameterHints: { enabled: false }, wordBasedSuggestions: 'off', acceptSuggestionOnEnter: 'off', tabCompletion: 'off', inlineSuggest: { enabled: false } };
 
 function Message({ text }) {
-  // React escapes text; only fenced code blocks get special rendering.
-  return text.split(/```(?:\w+)?\n?/).map((part, i) => i % 2 ? <pre key={i}>{part}</pre> : <p key={i}>{part}</p>);
+  return <MarkdownMessage text={text} />;
 }
 
 function TestList({ run, challenge }) {
@@ -55,6 +55,7 @@ export default function App() {
   const [model, setModel] = useState('');
   const [tab, setTab] = useState('chat');
   const [diff, setDiff] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState('editor'); // 'explorer' | 'editor' | 'assistant'
   const [showSubmit, setShowSubmit] = useState(false);
   const [narrate, setNarrate] = useState(false);
   const [note, setNote] = useState('');
@@ -146,6 +147,7 @@ export default function App() {
 
   async function run() {
     setBusy('Running tests…'); setError('');
+    setMobilePanel('editor');
     const result = await runTests(session.files, challenge);
     update(old => ({ runs: [...old.runs, result] }));
     setBusy('');
@@ -157,6 +159,7 @@ export default function App() {
     const editor = editorRef.current;
     const selection = editor && !diff ? editor.getModel().getValueInRange(editor.getSelection()) : '';
     setError(''); setQuestion(''); setPending({ question: text, file: session.active });
+    setMobilePanel('assistant');
     try {
       const history = visibleChat;
       const result = await askAssistant({ mode: 'investigate', question: text, file: session.active, code: session.files[session.active], files: session.files, selection, history });
@@ -169,7 +172,10 @@ export default function App() {
     if (session.phase === session.phases.length - 1) { setShowSubmit(true); return; }
     update(old => ({ phase: old.phase + 1, phases: old.phases.map((p, i) => i === old.phase ? { ...p, completedAt: Date.now() } : i === old.phase + 1 ? { ...p, startedAt: Date.now() } : p) }));
   }
-  const open = path => update(old => ({ active: path, openTabs: old.openTabs.includes(path) ? old.openTabs : [...old.openTabs, path] }));
+  const open = path => {
+    update(old => ({ active: path, openTabs: old.openTabs.includes(path) ? old.openTabs : [...old.openTabs, path] }));
+    setMobilePanel('editor');
+  };
   const closeTab = path => update(old => { const tabs = old.openTabs.filter(t => t !== path); return { openTabs: tabs, active: old.active === path ? tabs.at(-1) ?? Object.keys(old.files)[0] : old.active }; });
 
   const changed = useMemo(() => new Set(session ? Object.keys(session.files).filter(f => session.files[f] !== challenge.files[f]) : []), [session, challenge]);
@@ -187,16 +193,50 @@ export default function App() {
   return (
     <div className="app">
       <header className="toolbar">
-        <span className={`timer ${remaining < 300000 ? 'low' : ''}`}>⏱ {clock(remaining)}</span>
-        <span className="filepath">File: <strong>{session.active}</strong></span>
+        <div className="toolbar-info">
+          <span className={`timer ${remaining < 300000 ? 'low' : ''}`}>⏱ {clock(remaining)}</span>
+          <span className="filepath" title={session.active}>File: <strong>{session.active.split('/').pop()}</strong><span className="filepath-dir"> ({session.active})</span></span>
+        </div>
         <span className="spacer" />
-        {challenge.hasTests && <button className="secondary" onClick={run} disabled={!!busy}>Run tests</button>}
-        <button className="secondary" onClick={() => setDiff(d => !d)}>{diff ? 'Edit' : 'Diff'}{changed.size ? ` (${changed.size})` : ''}</button>
-        <button className="secondary" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme">{theme === 'dark' ? '☀ Light' : '☾ Dark'}</button>
-        <button className="primary" onClick={() => setShowSubmit(true)} disabled={!!busy}>Submit</button>
+        <div className="toolbar-actions">
+          {challenge.hasTests && <button className="secondary" onClick={run} disabled={!!busy}>Run tests</button>}
+          <button className="secondary" onClick={() => setDiff(d => !d)}>{diff ? 'Edit' : 'Diff'}{changed.size ? ` (${changed.size})` : ''}</button>
+          <button className="secondary" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme">{theme === 'dark' ? '☀ Light' : '☾ Dark'}</button>
+          <button className="primary" onClick={() => setShowSubmit(true)} disabled={!!busy}>Submit</button>
+        </div>
       </header>
 
-      <div className="panels">
+      <nav className="mobile-nav" role="tablist" aria-label="Panels">
+        <button
+          type="button"
+          className={`m-tab ${mobilePanel === 'explorer' ? 'active' : ''}`}
+          onClick={() => setMobilePanel('explorer')}
+          role="tab"
+          aria-selected={mobilePanel === 'explorer'}
+        >
+          📁 Files & Task
+        </button>
+        <button
+          type="button"
+          className={`m-tab ${mobilePanel === 'editor' ? 'active' : ''}`}
+          onClick={() => setMobilePanel('editor')}
+          role="tab"
+          aria-selected={mobilePanel === 'editor'}
+        >
+          💻 Code {changed.size ? `(${changed.size})` : ''}
+        </button>
+        <button
+          type="button"
+          className={`m-tab ${mobilePanel === 'assistant' ? 'active' : ''}`}
+          onClick={() => setMobilePanel('assistant')}
+          role="tab"
+          aria-selected={mobilePanel === 'assistant'}
+        >
+          ✦ Assistant {visibleChat.length ? `(${visibleChat.length})` : ''}
+        </button>
+      </nav>
+
+      <div className={`panels mobile-view-${mobilePanel}`}>
         <aside className="explorer">
           <h3>Explorer</h3>
           <FileTree paths={Object.keys(session.files)} active={session.active} changed={changed} onOpen={open} />
