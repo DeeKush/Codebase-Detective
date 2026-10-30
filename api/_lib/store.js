@@ -53,8 +53,13 @@ export function getStore() {
   const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (process.env.STORE === 'memory') return (cached = memory());
   if (url && token) return (cached = upstash(url, token));
-  if (process.env.RENDER || process.env.STORE === 'file') return (cached = file(path.resolve(process.cwd(), '.data/store.json')));
-  if (isProduction()) throw new HttpError(503, 'The database is not configured on this deployment.');
-  return (cached = file(path.resolve(process.cwd(), '.data/store.json')));
+  let storeFile = path.resolve(process.cwd(), '.data/store.json');
+  try {
+    fs.mkdirSync(path.dirname(storeFile), { recursive: true });
+  } catch {
+    storeFile = path.resolve(process.env.TMPDIR || '/tmp', 'store.json');
+    try { fs.mkdirSync(path.dirname(storeFile), { recursive: true }); } catch {}
+  }
+  return (cached = file(storeFile));
 }
 export const resetStoreForTests = () => { cached = undefined; };
