@@ -77,7 +77,9 @@ export function assertSameOrigin(req) {
   const origin = req.headers?.origin, host = req.headers?.host;
   if (!origin) return;
   let originHost; try { originHost = new URL(origin).host; } catch { throw new HttpError(403, 'Request blocked.'); }
-  if (originHost !== host) throw new HttpError(403, 'Request blocked.');
+  const forwardedHost = req.headers?.['x-forwarded-host'];
+  const allowedHost = process.env.CLIENT_ORIGIN ? new URL(process.env.CLIENT_ORIGIN).host : null;
+  if (originHost !== host && originHost !== forwardedHost && originHost !== allowedHost) throw new HttpError(403, 'Request blocked.');
 }
 
 export async function signUp({ name, email, password }) {
