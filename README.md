@@ -4,8 +4,10 @@ A timed code-comprehension interview. A candidate gets an unfamiliar codebase wi
 
 This folder is the whole product and runs on its own: nothing outside `web/` is needed to install, test, run or deploy it.
 
-- Live app: **<add the Vercel URL>**
-- Demo video: **<add the link>**
+- **Live Web Application (Vercel)**: [https://codebase-detective-eta.vercel.app](https://codebase-detective-eta.vercel.app)
+- **Backend API Service (Render)**: [https://codebase-detective-b38g.onrender.com](https://codebase-detective-b38g.onrender.com)
+- **GitHub Repository**: [https://github.com/DeeKush/Codebase-Detective](https://github.com/DeeKush/Codebase-Detective)
+- **Demo Video**: *(Link to be added once recorded)*
 
 ## Problem statement
 

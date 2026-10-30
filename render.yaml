@@ -10,6 +10,10 @@ services:
         value: 22.17.1
       - key: GRADER
         value: local
+      - key: STORE
+        value: file
+      - key: CLIENT_ORIGIN
+        value: https://codebase-detective-eta.vercel.app
       - key: GROQ_API_KEY
         sync: false
       - key: AUTH_SECRET
@@ -18,3 +22,4 @@ services:
         sync: false
       - key: KV_REST_API_TOKEN
         sync: false
+
