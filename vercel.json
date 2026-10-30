@@ -1,7 +1,10 @@
 {
-  "functions": {
-    "api/**/*.js": { "includeFiles": "{src/challenges/**,src/testkit.js}", "maxDuration": 60 }
-  },
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://codebase-detective-b38g.onrender.com/api/:match*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
